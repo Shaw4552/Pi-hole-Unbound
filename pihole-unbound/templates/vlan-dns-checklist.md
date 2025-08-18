@@ -14,4 +14,4 @@ Use this checklist to verify DNS resolution via Pi-hole + Unbound on each VLAN.
 
 ---
 
-## ✅ Tests
+## ✅ Test Results
