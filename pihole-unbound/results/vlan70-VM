@@ -1,0 +1,190 @@
+# VLAN DNS Testing Checklist
+
+Use this checklist to verify DNS resolution via Pi-hole + Unbound on each VLAN.
+
+Your Current Situation
+
+✅ DNS Server is correctly set to Pi-hole (192.168.10.2)
+
+✅ DNSSEC "valid" works
+
+✅ DNSSEC "invalid" times out instead of returning SERVFAIL
+
+❌ Blocked domain (googleads) returns real IPs — not 0.0.0.0
+
+✅ You're on VLAN 70
+---
+
+## 🔎 VLAN Details
+
+- **VLAN Name**: `VM`
+- **VLAN ID**: `70`
+- **Subnet**: `92.168.70.0/24`
+- **Device IP**: `92.168.70.125`
+- **Device Hostname**: `joshs-MacBook-Pro.local`
+
+✅ What's Working:
+
+VLAN 70 gets an IP in the correct range.
+
+DNS queries are reaching Pi-hole (192.168.10.2) successfully.
+
+Recursive queries and DNSSEC-valid queries are fine.
+
+❌ What's Still Broken:
+Test	Issue
+DNSSEC invalid test	❌ Timeout instead of SERVFAIL (Pi-hole didn't respond)
+Blocklist test	❌ Domain not blocked, returns real IPs (e.g., googleads.g.doubleclick.net)
+
+This matches your previous VLAN tests (e.g. VLAN 55, 60), and confirms:
+---
+
+## ✅ Test Results
+🌐 VLAN / IP Verification
+→ Current IP: 	inet 192.168.70.125 netmask 0xffffff00 broadcast 192.168.70.255
+→ Detected VLAN (from IP): 70
+
+🔍 VLAN DNS Test - alt.lan
+------------------------------
+Using Pi-hole IP: 192.168.10.2
+
+1️⃣  Testing DNS server assignment...
+→ System DNS: 192.168.10.2
+✅ Correct DNS IP
+
+2️⃣  dig example.com
+96.7.128.198
+23.192.228.80
+23.192.228.84
+23.215.0.136
+23.215.0.138
+96.7.128.175
+
+3️⃣  DNSSEC Valid Test (sigok)
+
+; <<>> DiG 9.10.6 <<>> +dnssec sigok.verteiltesysteme.net
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 36303
+;; flags: qr rd ra; QUERY: 1, ANSWER: 4, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags: do; udp: 1232
+;; QUESTION SECTION:
+;sigok.verteiltesysteme.net.	IN	A
+
+;; ANSWER SECTION:
+sigok.verteiltesysteme.net. 3133 IN	CNAME	sigok.rsa2048-sha256.ippacket.stream.
+sigok.verteiltesysteme.net. 3133 IN	RRSIG	CNAME 13 3 1799 20250828000000 20250807000000 47187 verteiltesysteme.net. e3RiWOwv2i14nRNUPlPhsNOsg5J1APzEhk6l+0hQl0YhIWXK/a3xBZC9 GDwssKcZbXx71Gx/Ls4kYY5eIfwUqg==
+sigok.rsa2048-sha256.ippacket.stream. 3133 IN A	195.201.14.36
+sigok.rsa2048-sha256.ippacket.stream. 3133 IN RRSIG A 8 4 60 20250910030002 20250731030002 46436 rsa2048-sha256.ippacket.stream. ri+84VM1ehEwqTlHbhKjPU+lYyK5B2K+4ADCDNvRy7eaphEK4UIi75NT g54x0dwISSa+R6KOYXwUz8RjXbVdg4FtLaQX77kbB4a6KNg5PwvrP6Bn rL2n3QT8i1y086eFDxvPAneefA8gTE8GpOgZkimDceSBfIy9RpZROCQi +4ZbShvpx9JE30aydGiyNbicVtm1UBLZ0NJqy7f8jDJW8teXFcKYBTgq n/YROH4UIK8k0O/zP7jjL1/3v7yl1xp6uJ8vFAWjPYrt3lkQ4etRPIiU ZIihyhDRWlqGTH/dEvSllK5bYT5kDez4sEL6sXdspQpgqdqPzjvRqgt7 xlEkYg==
+
+;; Query time: 138 msec
+;; SERVER: 192.168.10.2#53(192.168.10.2)
+;; WHEN: Mon Aug 18 21:55:28 CDT 2025
+;; MSG SIZE  rcvd: 555
+
+
+4️⃣  DNSSEC Invalid Test (sigfail)
+
+; <<>> DiG 9.10.6 <<>> +dnssec sigfail.verteiltesysteme.net
+;; global options: +cmd
+;; connection timed out; no servers could be reached
+✅ Should see no output (SERVFAIL)
+
+5️⃣  Recursive query test (random domain)
+;; Query time: 178 msec
+;; SERVER: 192.168.10.2#53(192.168.10.2)
+;; WHEN: Mon Aug 18 21:55:43 CDT 2025
+;; MSG SIZE  rcvd: 134
+
+
+6️⃣  Blocklist test (googleads)
+142.250.140.157
+142.250.140.154
+142.250.140.155
+142.250.140.156
+✅ Should return 0.0.0.0 or nothing
+
+🧠 Interpretation
+
+Everything looks right on the surface — but:
+
+The Pi-hole is answering DNS requests… but blocklists aren’t being enforced.
+
+That usually means the DNS request is not going through Pi-hole as expected, even if it appears that way.
+
+🔥 Likely Cause: MASQUERADING / NAT Still In Effect
+
+Even though your system DNS is set to Pi-hole, your traffic is still being NATed, and Pi-hole sees it as coming from the UDM Pro instead of the VLAN client.
+
+That breaks:
+
+Client-specific blocking
+
+Pi-hole query logs (showing UDM instead of real clients)
+
+DNS filtering per client
+
+Sometimes blocklists (depending on how rules are enforced)
+
+✅ What You Need to Do (Recap with Fix)
+1. ✅ Make Sure You Have a Traffic Route
+
+Go to UniFi Controller → Settings → Routing & Firewall → Traffic Routes
+
+Name: DNS to Pi-hole
+
+Type: LAN-to-LAN (not WAN)
+
+Destination: 192.168.10.2/32
+
+Port: TCP/UDP 53 (optional, if using L7 match)
+
+Next Hop: leave blank (don’t define a gateway — this avoids NAT)
+
+Apply To VLAN: VLAN 70 (and others if needed)
+
+➡️ This ensures traffic goes directly to Pi-hole without masquerading.
+
+2. 🔥 Verify NAT is Not Happening
+
+SSH into your UDM Pro:
+
+sudo tcpdump -i br0 port 53
+
+
+Then from a VLAN client (e.g. 192.168.70.125):
+
+dig example.com
+
+
+Look at the source IP:
+
+✅ If you see 192.168.70.125 → good
+
+❌ If you see 192.168.1.1 or UDM's IP → NAT is happening, and blocklists may fail
+
+3. ⛔ Turn Off DNS Redirects / Filters
+
+UniFi → Settings → Internet → DNS Filtering
+
+Set to Off if using Pi-hole
+
+DNS filtering redirects traffic and can override your Pi-hole setup silently.
+
+4. 🔍 Confirm with Pi-hole Logs
+
+On Pi-hole:
+
+tail -f /var/log/pihole.log
+
+
+Then query from your VLAN client:
+
+dig googleads.g.doubleclick.net
+
+
+✅ If you see this query in Pi-hole's logs — it's working
+
+❌ If not, something else is hijacking the DNS

@@ -1,0 +1,179 @@
+# VLAN DNS Testing Checklist
+
+Use this checklist to verify DNS resolution via Pi-hole + Unbound on each VLAN.
+✅ What’s Working:
+Test	Status
+DNS resolution	✅
+Recursive query	✅
+DNSSEC (valid)	✅
+DNSSEC (invalid)	❌ (timeout)
+Blocklist test	❌ (not blocking)
+
+---
+
+## 🔎 VLAN Details
+
+- **VLAN Name**: `Work`
+- **VLAN ID**: `60`
+- **Subnet**: `192.168.60.0/24`
+- **Device IP**: `192.168.60.125`
+- **Device Hostname**: `joshs-MacBook-Pro.local`
+
+---
+
+## ✅ Test Results
+🌐 VLAN / IP Verification
+→ Current IP: 	inet 192.168.60.125 netmask 0xffffff00 broadcast 192.168.60.255
+→ Detected VLAN (from IP): 60
+
+🔍 VLAN DNS Test - alt.lan
+------------------------------
+Using Pi-hole IP: 192.168.10.2
+
+1️⃣  Testing DNS server assignment...
+→ System DNS: 192.168.10.2
+✅ Correct DNS IP
+
+2️⃣  dig example.com
+96.7.128.198
+23.192.228.80
+23.192.228.84
+23.215.0.136
+23.215.0.138
+96.7.128.175
+
+3️⃣  DNSSEC Valid Test (sigok)
+
+; <<>> DiG 9.10.6 <<>> +dnssec sigok.verteiltesysteme.net
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 59053
+;; flags: qr rd ra; QUERY: 1, ANSWER: 4, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags: do; udp: 1232
+;; QUESTION SECTION:
+;sigok.verteiltesysteme.net.	IN	A
+
+;; ANSWER SECTION:
+sigok.verteiltesysteme.net. 3597 IN	CNAME	sigok.rsa2048-sha256.ippacket.stream.
+sigok.verteiltesysteme.net. 3597 IN	RRSIG	CNAME 13 3 1799 20250828000000 20250807000000 47187 verteiltesysteme.net. e3RiWOwv2i14nRNUPlPhsNOsg5J1APzEhk6l+0hQl0YhIWXK/a3xBZC9 GDwssKcZbXx71Gx/Ls4kYY5eIfwUqg==
+sigok.rsa2048-sha256.ippacket.stream. 3600 IN A	195.201.14.36
+sigok.rsa2048-sha256.ippacket.stream. 3600 IN RRSIG A 8 4 60 20250910030002 20250731030002 46436 rsa2048-sha256.ippacket.stream. ri+84VM1ehEwqTlHbhKjPU+lYyK5B2K+4ADCDNvRy7eaphEK4UIi75NT g54x0dwISSa+R6KOYXwUz8RjXbVdg4FtLaQX77kbB4a6KNg5PwvrP6Bn rL2n3QT8i1y086eFDxvPAneefA8gTE8GpOgZkimDceSBfIy9RpZROCQi +4ZbShvpx9JE30aydGiyNbicVtm1UBLZ0NJqy7f8jDJW8teXFcKYBTgq n/YROH4UIK8k0O/zP7jjL1/3v7yl1xp6uJ8vFAWjPYrt3lkQ4etRPIiU ZIihyhDRWlqGTH/dEvSllK5bYT5kDez4sEL6sXdspQpgqdqPzjvRqgt7 xlEkYg==
+
+;; Query time: 2876 msec
+;; SERVER: 192.168.10.2#53(192.168.10.2)
+;; WHEN: Mon Aug 18 21:41:12 CDT 2025
+;; MSG SIZE  rcvd: 555
+
+
+4️⃣  DNSSEC Invalid Test (sigfail)
+
+; <<>> DiG 9.10.6 <<>> +dnssec sigfail.verteiltesysteme.net
+;; global options: +cmd
+;; connection timed out; no servers could be reached
+✅ Should see no output (SERVFAIL)
+
+5️⃣  Recursive query test (random domain)
+;; Query time: 136 msec
+;; SERVER: 192.168.10.2#53(192.168.10.2)
+;; WHEN: Mon Aug 18 21:41:27 CDT 2025
+;; MSG SIZE  rcvd: 134
+
+
+6️⃣  Blocklist test (googleads)
+142.251.40.130
+✅ Should return 0.0.0.0 or nothing
+
+🔍 Diagnosing the Cause:
+
+Here’s what might be going wrong and how to fix it:
+
+1. Pi-hole is not seeing the original client IP
+
+If your UDM Pro NATs DNS traffic, then Pi-hole only sees the UDM's IP — not the client. This can cause:
+
+Group policies in Pi-hole to not apply
+
+Logging to be inaccurate
+
+Blocking rules to be ignored
+
+🛠️ Fix:
+
+On your UDM Pro, in your policy-based route, disable NAT (masquerading) for DNS traffic from VLAN 60 to Pi-hole (192.168.10.2).
+
+2. Pi-hole is forwarding to upstream DNS that isn’t filtered
+
+Check if Pi-hole is set to forward all queries to an upstream resolver (like 1.1.1.1, 8.8.8.8) without filtering.
+
+🛠️ Fix:
+
+Go to Pi-hole admin panel → Settings → DNS
+
+Check that blocking mode is enabled
+
+Avoid using upstream DNS over HTTPS unless it’s controlled (e.g., via unbound)
+
+Better: Use local Unbound or a filtered forwarder
+
+3. Check Pi-hole logs for DNSSEC timeouts
+
+That timeout on the invalid DNSSEC query (sigfail) can indicate:
+
+Network path issues
+
+Upstream DNS server does not support DNSSEC properly
+
+🛠️ Fix:
+
+Make sure Pi-hole’s upstream server supports DNSSEC if you're validating it
+
+Or set Pi-hole to use Unbound with DNSSEC locally
+
+4. Check Gravity/List Configuration
+
+Just in case it’s not a routing issue:
+
+Run this on Pi-hole to reapply blocklists:
+
+pihole -g
+
+
+To confirm if the domain is blocked:
+
+pihole -q googleads.g.doubleclick.net
+
+
+If it doesn't show up, add a blocklist manually that includes that domain.
+
+🔧 Policy-Based Routing Checklist for VLAN 60 → Pi-hole
+Setting	Should Be
+Route to Pi-hole IP	✅
+NAT / Masquerading	❌ Disabled
+DNS forced to Pi-hole	✅
+UDM DNS override	❌ Do NOT override Pi-hole
+✅ Steps to Try Now
+
+Confirm Pi-hole sees your client IP:
+
+Check Pi-hole logs → look at what IP the query is coming from.
+
+If it’s your UDM Pro’s IP, NAT is enabled — disable NAT on the DNS route.
+
+Run:
+
+pihole -q googleads.g.doubleclick.net
+
+
+If missing, add a blocklist or manual block:
+
+pihole -b googleads.g.doubleclick.net
+
+
+Test again:
+
+dig googleads.g.doubleclick.net
+
+
+Should return 0.0.0.0.
