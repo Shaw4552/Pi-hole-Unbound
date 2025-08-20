@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  pihole:
+    container_name: pihole
+    image: shaw4552/ark-pihole:latest
+    restart: unless-stopped
+    networks:
+      pihole_macvlan:
+        ipv4_address: 192.168.10.2  # 🔁 Change to an unused static IP on your LAN
+
+    ports:
+      - 53:53/tcp 
+      - 53:53/udp 
+      - 80:80
+      - "8080:8080"   # Optional local access via host if needed
+      - "443:443"
+
+    environment:
+      TZ: "America/Chicago"
+      WEBPASSWORD: ${PIHOLE_WEBPASSWORD}
+      DNSMASQ_LISTENING: all
+      PIHOLE_DNS_: "1.1.1.1;8.8.8.8"
+      DNSMASQ_USER: root
+
+    volumes:
+      - /mnt/HD/HD_a2/appdata/pihole/etc-pihole/:/etc/pihole/
+      - /mnt/HD/HD_a2/appdata/pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/
+      - /mnt/HD/HD_a2/appdata/pihole/scripts:/home/network  # Mount your custom scripts
+      - /mnt/HD/HD_a2/appdata/pihole/ssl:/etc/ssl/private  # ✅ Add this line
+      - /mnt/HD/HD_a2/appdata/pihole/etc-lighttpd/:/etc/lighttpd/
+
+    cap_add:
+      - NET_ADMIN  # Required for DHCP (optional)
+    
+    healthcheck:
+      test: ["CMD", "curl", "-sSf", "http://localhost/admin/api.php?summary"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+
+networks:
+  pihole_macvlan:
+    external: true
+    name: Admin-pihole-docker

@@ -1,0 +1,23 @@
+version: "3"
+services:
+  unbound:
+    image: mvance/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    networks:
+      pihole_macvlan:
+        ipv4_address: 192.168.10.242
+    volumes:
+      - ./unbound.conf:/opt/unbound/unbound.conf:ro
+    
+    healthcheck:
+      test: ["CMD", "drill", "cloudflare.com", "@127.0.0.1", "-p", "5335"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  pihole_macvlan:
+    external: true
+    name: admin-pihole-docker
+
