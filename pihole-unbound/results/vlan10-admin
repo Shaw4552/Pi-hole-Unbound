@@ -10,7 +10,7 @@ Use this checklist to verify DNS resolution via Pi-hole + Unbound on each VLAN.
 - **VLAN ID**: `10`
 - **Subnet**: `192.168.10.0/24`
 - **Device IP**: `192.168.10.125`
-- **Device Hostname**: `joshs-MacBook-Pro.local`
+- **Device Hostname**: `joshs-MacBook-Pro.localÍ`
 
 ---
 
