@@ -11,6 +11,7 @@ DNSSEC Invalid Test (sigfail)	✅ SERVFAIL	Invalid signatures are being rejected
 Recursive query test	✅ Working	Pi-hole is able to resolve domains recursively
 Blocklist test (googleads)	✅ 0.0.0.0	Blocklists are correctly intercepting ad domains
 ---
+Perfect score again — VLAN 40 is fully passing all DNS tests. Here's the final confirmation
 
 ## 🔎 VLAN Details
 

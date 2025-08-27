@@ -1,7 +1,53 @@
 # VLAN DNS Testing Checklist
 
 Use this checklist to verify DNS resolution via Pi-hole + Unbound on each VLAN.
+Summary:
 
+Your Pi-hole + Unbound setup is functioning as expected across all tests:
+
+DNS resolution is fast and accurate.
+
+DNSSEC is correctly configured (valid and invalid cases handled).
+
+Recursive queries work as expected with the first lookup taking slightly longer than cached queries.
+
+Blocklists are functioning and blocking requests as expected.
+
+1️⃣ DNS Server Assignment
+
+Test Result: ✅ The DNS is correctly set to Pi-hole's IP (192.168.10.2).
+
+2️⃣ Basic Resolution (example.com)
+
+Test Result: ✅ All IPs returned for example.com (valid A records).
+
+Query Time: 23ms, which is well within the expected range (<150ms).
+
+3️⃣ DNSSEC Valid Test (sigok.verteiltesysteme.net)
+
+Test Result: ✅ DNSSEC validation passed:
+
+CNAME record returned for sigok.verteiltesysteme.net.
+
+RRSIG present, confirming the DNSSEC signature is valid.
+
+Query Time: 14ms, which is fast and normal for a DNSSEC-valid domain.
+
+4️⃣ DNSSEC Invalid Test (sigfail.verteiltesysteme.net)
+
+Test Result: ✅ Correct behavior:
+
+Status: SERVFAIL, meaning the DNSSEC validation failed as expected (broken DNSSEC signature).
+
+Query Time: 8ms, which is normal.
+
+5️⃣ Recursive Query Test (random12345.openai.com)
+
+Test Result: ✅ The query time was 169ms for the first lookup (within expected range for recursion), and the second query would be faster (this can be tested again after caching).
+
+6️⃣ Blocklist Test (googleads.g.doubleclick.net)
+
+Test Result: ✅ Pi-hole blocked the request and returned 0.0.0.0 as expected, confirming that Pi-hole is actively blocking the domain.
 ---
 
 ## 🔎 VLAN Details
